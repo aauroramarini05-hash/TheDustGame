@@ -1,55 +1,68 @@
-name: Build Android APK
+name: Android Build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Java
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
 
-    - name: Install Godot
-      run: |
-        wget https://github.com/godotengine/godot/releases/download/4.2-stable/Godot_v4.2-stable_linux.x86_64.zip
-        unzip Godot_v4.2-stable_linux.x86_64.zip
-        chmod +x Godot_v4.2-stable_linux.x86_64
+      - name: Install Android platform-tools
+        run: |
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_SDK_ROOT/build-tools/34.0.0" >> $GITHUB_PATH
+          adb version || true
 
-        mkdir -p ~/.local/share/godot/export_templates/4.2.stable
-        wget https://github.com/godotengine/godot/releases/download/4.2-stable/Godot_v4.2-stable_export_templates.tpz
-        unzip Godot_v4.2-stable_export_templates.tpz -d ~/.local/share/godot/export_templates/4.2.stable
+      - name: Install Godot
+        run: |
+          wget https://github.com/godotengine/godot/releases/download/4.2-stable/Godot_v4.2-stable_linux.x86_64.zip
+          unzip Godot_v4.2-stable_linux.x86_64.zip
+          chmod +x Godot_v4.2-stable_linux.x86_64
 
-    - name: Create Debug Keystore
-      run: |
-        keytool -genkey -v -keystore debug.keystore \
-        -storepass android -alias androiddebugkey \
-        -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
-        -dname "CN=Android Debug,O=Android,C=US"
+          mkdir -p ~/.local/share/godot/export_templates/4.2.stable
+          wget https://github.com/godotengine/godot/releases/download/4.2-stable/Godot_v4.2-stable_export_templates.tpz
+          unzip Godot_v4.2-stable_export_templates.tpz -d ~/.local/share/godot/export_templates/4.2.stable
 
-    - name: Export APK
-      run: |
-        mkdir -p build
-        ./Godot_v4.2-stable_linux.x86_64 --headless \
-        --export-debug "Android" build/game.apk
+      - name: Create Keystore
+        run: |
+          keytool -genkey -v -keystore debug.keystore \
+          -storepass android -alias androiddebugkey \
+          -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
+          -dname "CN=Android Debug,O=Android,C=US"
 
-    - name: Verify APK Exists
-      run: |
-        ls -la build
+      - name: Export APK
+        run: |
+          mkdir -p build
+          ./Godot_v4.2-stable_linux.x86_64 --headless --verbose \
+            --export-debug "Android" build/game.apk || true
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: ProjectHorizonAPK
-        path: build/game.apk
+          echo "=== LIST BUILD DIR ==="
+          ls -la build || true
+
+          echo "=== FIND ANY APK ==="
+          find . -maxdepth 6 -type f -name "*.apk" -print || true
+
+          echo "=== FIND ANY AAB ==="
+          find . -maxdepth 6 -type f \( -name "*.aab" -o -name "*.aar" \) -print || true
+
+          test -f build/game.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: APK
+          path: |
+            build/game.apk
+            **/*.apk
