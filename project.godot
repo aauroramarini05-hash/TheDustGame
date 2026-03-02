@@ -1,0 +1,8 @@
+config_version=5
+
+[application]
+config/name="ProjectHorizon"
+run/main_scene="res://scenes/Main.tscn"
+
+[rendering]
+renderer/rendering_method="forward_plus"
